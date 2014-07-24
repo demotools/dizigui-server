@@ -1,0 +1,11 @@
+# 有关项目配置以及一些注意事项
+
+# 系统缓存
+1. 用户缓存 pre_key: user-    ; _key: user_id
+2. 心得缓存 pre_key: topic-   ; _key: id  (topic_id)
+3. 评论缓存 pre_key: comment- ; _key: id  (comment_id)
+4. 赞缓存   pre_key: like-    ; _key: key  (key = str(zan['item_type'])+zan['user_id']+str(zan['item_id'])
+)
+5. 消息缓存  all,tc,tl,cc,cl,ts,sys
+6. 推送信息缓存   pre_key: push-    ; _key: uid
+

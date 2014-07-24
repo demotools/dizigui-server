@@ -1,0 +1,19 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+import string
+from datetime import date, timedelta
+from random import randint
+
+import model.item
+
+
+def rand_date():
+    today = date.today()
+    firstday = model.item.get_first_item_date()
+    time_diff = (today - firstday).days or 1
+    day_delta = randint(1, time_diff)
+    tmp_date = today - timedelta(days=day_delta)
+    result = string.join(tmp_date.__str__().split('-'),'')
+    return result
+

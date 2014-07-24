@@ -1,0 +1,26 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# import json
+import model.action
+
+
+def judge_item_love(action_uid, item):
+    loved_items = model.action.get_loved_items(action_uid)
+    if item['_id'] in loved_items:
+        item['had_loved'] = 1
+    else:
+        item['had_loved'] = 0
+    return item
+
+
+def judge_waterfall_love(action_uid, items):
+    """ 设置用户对某个item的喜欢值
+    """
+    loved_items = model.action.get_loved_items(action_uid)
+    for item in items:
+        if item['_id'] in loved_items:
+            item['had_loved'] = 1
+        else:
+            item['had_loved'] = 0
+    return items

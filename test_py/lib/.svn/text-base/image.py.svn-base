@@ -1,0 +1,275 @@
+# coding: utf-8
+
+import os
+import binascii
+import json
+import tempfile
+import re
+
+import Image
+
+import hqby.pk
+import hqby.db
+from hqby.config import configs
+from tools import tools
+
+from tornado.web import HTTPError
+
+
+TP_STATIC = 'STATIC'
+TP_ANIMATION = 'ANIMATION'
+
+
+IMAGE_SIZES = {
+    'ITEM': {  # 童画图片规格
+        '0x0': {'refer': 'width', 'value': 0, 'crop_ratio': 0},
+        '75x75': {'refer': 'width', 'value': 75, 'crop_ratio': 1},
+        '150x150': {'refer': 'width', 'value': 150, 'crop_ratio': 1},
+        '150x0': {'refer': 'width', 'value': 150, 'crop_ratio': 0},
+        '300x0': {'refer': 'width', 'value': 640, 'crop_ratio': 0},
+    },
+    'PORTRAIT': {  # 头像图片
+        '0x0': {'refer': 'width', 'value': 0, 'crop_ratio': 0},
+        '50x50': {'refer': 'width', 'value': 50, 'crop_ratio': 1},
+        '100x100': {'refer': 'width', 'value': 100, 'crop_ratio': 1},
+    },
+    'TOPIC': {  # 专题图片
+        '0x0': {'refer': 'width', 'value': 0, 'crop_ratio': 0},  # 原图
+        '320x0': {'refer': 'width', 'value': 320, 'crop_ratio': 0},
+    },
+    'TOPIC-WEB': {  # 专题详情图片
+        '0x0': {'refer': 'width', 'value': 0, 'crop_ratio': 0},  # 原图
+    }
+}
+
+_CHOOSE_ORDERS = {
+    'PORTRAIT': ['50x50', '100x100'],
+    'RAW': ['0x0'],
+    'SQUARE': ['75x75', '150x150'],  # for favor, timeline...
+    'WATERFALL': ['150x0', '300x0'],
+}
+
+
+def crop_image(img, kwargs):
+    # TODO read
+    """裁剪图片
+        img: PIL的Image对象
+        kwargs: 参数字典
+            refer: 参考对象，width或者height
+            value: refer对应的宽度或者高度，0代表不调整
+            crop_ratio: 裁剪的宽高比例，0代表不调整
+    返回裁剪好的PIL的Image对象
+    """
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+    if kwargs['value'] == 0 and kwargs['crop_ratio'] == 0:  # 原图 不需要裁剪
+        return img.copy()
+    ratio0 = 1.0 * img.size[0] / img.size[1]
+    ratio = kwargs['crop_ratio'] if kwargs['crop_ratio'] else ratio0  # 获取图片宽高比
+    # 计算新的宽高
+    if kwargs['refer'] == 'width':  # 按照宽度来确定新的宽高
+        width = kwargs['value'] if kwargs['value'] else img.size[0]
+        height = int(width / ratio)
+    else:
+        height = kwargs['value'] if kwargs['value'] else img.size[1]
+        width = int(height * ratio)
+    # 计算裁剪范围
+    box0 = img.getbbox()
+    if width >= img.size[0] and height >= img.size[1]:
+        return img
+    elif width >= img.size[0]:
+        width = img.size[0]
+        cut_len = int((img.size[1] - height) / 2)
+        box = (box0[0], cut_len, box0[2], box0[3] - cut_len)
+    elif height >= img.size[1]:
+        height = img.size[1]
+        cut_len = int((img.size[0] - width) / 2)
+        box = (cut_len, box0[1], box0[2] - cut_len, box0[3])
+    elif ratio > ratio0:
+        cut_len = int((img.size[1] - img.size[0] / ratio) / 2)
+        box = (box0[0], cut_len, box0[2], box0[3] - cut_len)
+    else:
+        cut_len = int((img.size[0] - img.size[1] * ratio) / 2)
+        box = (cut_len, box0[1], box0[2] - cut_len, box0[3])
+    # 生成新的图片
+    return img.crop(box).resize((width, height), Image.ANTIALIAS)
+
+
+def crop_image_group(image, crop_args, pre_path, pre_url, mid_path, quality=90):
+    """ 裁剪图片，并按指定的各种规格保存.
+        image: 图片文件路径或者PIL.Image对象
+        crop_args: dict的dict，值对应crop_image的kwargs
+        pre_path: 保存图片的基本路径
+        pre_url: 访问图片的url前缀
+        mid_path: 保存图片的中间路径，使用url的"/"来分隔
+        quality: JPEG保存质量
+    """
+    if hasattr(image, 'getpixel'):
+        img0 = image
+    else:
+        img0 = Image.open(image)
+    try:
+        img0.seek(1)
+        info = {'type': TP_ANIMATION}
+    except EOFError:
+        info = {'type': TP_STATIC}
+    finally:
+        img0.seek(0)
+    # 调整图片亮度
+    #tm_img = img0
+    #try:
+    #    img0 = tools.adjust_bright(img=tm_img)
+    #    logging.info('[Image Bright adjust] success')
+    #except Exception as ex:
+    #    logging.error('[Image Bright adjust] failed' + str(ex))
+    #    img0 = tm_img
+    for k, v in crop_args.items():
+        if (k == '0x0' or k == '300x0') and info['type'] == TP_ANIMATION and hasattr(image, 'readline'):
+            # 动画图片，写入原始文件
+            sub_path = '%s.%s.%s' % (mid_path, k, img0.format.lower())
+            img_file = os.path.join(pre_path, *sub_path.split('/'))  # sub_path = temp/id.0x0.jpg ...
+            if not os.path.exists(os.path.dirname(img_file)):
+                os.makedirs(os.path.dirname(img_file))  # 建立temp文件夹
+            image.seek(0)
+            with open(img_file, 'wb') as f:
+                f.write(image.read())  # 写入原始图片
+            info[k] = {
+                'width': img0.size[0], 'height': img0.size[1],
+                'src': '%s/%s?%s' % (pre_url, sub_path, file_crc(img_file)),  # 记录图片访问地址, 附带crc信息, 自动更新
+            }
+            continue
+        img = crop_image(img0, v)  # 裁剪图片
+        sub_path = '%s.%s.jpg' % (mid_path, k)  # 格式: temp/xid.0x0.jpg
+        img_file = os.path.join(pre_path, *sub_path.split('/'))
+        if not os.path.exists(os.path.dirname(img_file)):
+            os.makedirs(os.path.dirname(img_file))  # 建立temp文件夹
+        img.save(img_file, 'JPEG', quality=quality)  # 保存
+        info[k] = {
+            'width': img.size[0], 'height': img.size[1],
+            'src': '%s/%s?%s' % (pre_url, sub_path, file_crc(img_file)),
+        }
+        del img
+    del img0
+    return info  # 返回图片访问信息
+
+
+def id_to_subdir(id, dir_len=2):
+    """ 获取图片子目录
+    """
+    dirs = []
+    img_dir = str(int(id) // (10 ** dir_len))
+    prefix = len(img_dir) % dir_len
+    if prefix > 0:
+        img_dir = '0' * (dir_len - prefix) + img_dir
+    for i in range(len(img_dir) // dir_len):
+        dirs.append(img_dir[i * dir_len:(i + 1) * dir_len])
+    return '/'.join(dirs)
+
+
+def file_crc(file_path):
+    """ 计算文件的crc
+    """
+    f = open(file_path, 'rb')
+    crc = binascii.crc32(f.read())
+    f.close()
+    return '%08x' % (crc & 0xffffffff)
+
+
+def create_temp_image(img_file, refer_type, user_id):
+    """ 生成临时图片
+    """
+    if hasattr(img_file, 'fileno'):
+        pass
+    elif img_file[:1] == '/' and os.path.exists(img_file):
+        img_file = open(img_file, 'rb')
+    else:
+        tmp_file = tempfile.TemporaryFile()
+        tmp_file.write(img_file)
+        tmp_file.seek(0)
+        img_file = tmp_file
+    # todo: check file size and dimensions?
+    max_try = 3
+    dbc = hqby.db.get_conn('tonghua')
+    for i in range(max_try):
+        xid = hqby.pk.gen_id(8)
+        try:
+            dbc.execute(
+                "insert into temp_images (id, user_id, refer_type, ins_time) "
+                    "values (%s, %s, %s, unix_timestamp())",
+                xid, user_id, refer_type)
+        except Exception as ex:
+            if ex[0] == 1062:  # duplicated id
+                continue
+            else:
+                raise ex
+        break
+    else:
+        raise Exception('Image Error', 'unable to create temp image id')
+    img = crop_image_group(img_file, IMAGE_SIZES[refer_type],
+                           configs['img_base_path'], configs['img_base_url'],
+                           'temp/' + xid)  # 多尺寸的图片信息
+    img['id'] = xid
+    img_file.close()
+    dbc.execute(
+        "update temp_images set image = %s, img_type = %s where id = %s",
+        json.dumps(img), img['type'], xid)  # 更新临时图片表
+    return img
+
+
+def get_temp_image(id):
+    """获取临时图片
+    """
+    tj_dbc = hqby.db.get_conn('tonghua')
+    img = tj_dbc.get("select * from temp_images where id = %s", id)
+    if not img:
+        raise HTTPError(500, 'Temp Image not found')
+    img['image'] = json.loads(img['image'])
+    return img
+
+
+def move_temp_image(img, pre_path, pre_url, mid_path, new_id=None):
+    """ 移动临时图片
+    """
+    info = {}
+    #利用正则表达式解析src来获得文件名和扩展名
+    re_pattern = configs['img_base_url'] + '\/(\S+)\?'
+    tmp_path_re = re.compile(re_pattern)
+    for k, v in IMAGE_SIZES[img['refer_type']].items():
+        absolute_url = img['image'][k]['src']
+        tmp_path = tmp_path_re.match(absolute_url).group(1)
+        tmp_file = os.path.join(configs['img_base_path'], *tmp_path.split('/'))
+        extension = tmp_path.split('.')[-1]
+        sub_path = '%s/%s.%s.%s' % (mid_path, img['id'], k, extension)
+        img_file = os.path.join(pre_path, *sub_path.split('/'))
+        if not os.path.exists(os.path.dirname(img_file)):
+            os.makedirs(os.path.dirname(img_file))
+        #利用rename移动数据
+        os.rename(tmp_file, img_file)
+        info[k] = {
+            'width': img.image[k]['width'], 'height': img.image[k]['height'],
+            'src': '%s/%s?%s' % (pre_url, sub_path, file_crc(img_file)),
+        }
+    tj_dbc = hqby.db.get_conn('tonghua')
+    tj_dbc.execute("delete from temp_images where id = %s", img['id'])
+    if new_id:
+        info['id'] = new_id
+    return info
+
+
+def choose_image(img, exp_width, key_list):
+    """ 根据期望的宽度和key_list顺序从img中选择最合适的规格并返回。
+    """
+    if isinstance(img, list):
+        img = img[0]
+    if isinstance(key_list, str):
+        key_list = _CHOOSE_ORDERS[key_list]
+    ret = None
+    for i in key_list:
+        im = img.get(i)
+        if not im:
+            continue
+        ret = im
+        if im and im['width'] >= exp_width:
+            return ret
+    return ret
+

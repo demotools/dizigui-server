@@ -1,0 +1,107 @@
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/repos/s_tonghua/!svn/ver/428/trunk/src/lib/hqby
+END
+errlog.py
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/repos/s_tonghua/!svn/ver/263/trunk/src/lib/hqby/errlog.py
+END
+item.py
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/repos/s_tonghua/!svn/ver/408/trunk/src/lib/hqby/item.py
+END
+__init__.py
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/repos/s_tonghua/!svn/ver/2/trunk/src/lib/hqby/__init__.py
+END
+auth.py
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/repos/s_tonghua/!svn/ver/2/trunk/src/lib/hqby/auth.py
+END
+audio.py
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/repos/s_tonghua/!svn/ver/379/trunk/src/lib/hqby/audio.py
+END
+comment.py
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/repos/s_tonghua/!svn/ver/400/trunk/src/lib/hqby/comment.py
+END
+cache.py
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/repos/s_tonghua/!svn/ver/397/trunk/src/lib/hqby/cache.py
+END
+love.py
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/repos/s_tonghua/!svn/ver/350/trunk/src/lib/hqby/love.py
+END
+config.py
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/repos/s_tonghua/!svn/ver/426/trunk/src/lib/hqby/config.py
+END
+pk.py
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/repos/s_tonghua/!svn/ver/2/trunk/src/lib/hqby/pk.py
+END
+tag.py
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/repos/s_tonghua/!svn/ver/298/trunk/src/lib/hqby/tag.py
+END
+timetravel.py
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/repos/s_tonghua/!svn/ver/339/trunk/src/lib/hqby/timetravel.py
+END
+util.py
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/repos/s_tonghua/!svn/ver/379/trunk/src/lib/hqby/util.py
+END
+user.py
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/repos/s_tonghua/!svn/ver/428/trunk/src/lib/hqby/user.py
+END
+txt.py
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/repos/s_tonghua/!svn/ver/203/trunk/src/lib/hqby/txt.py
+END
+image.py
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/repos/s_tonghua/!svn/ver/406/trunk/src/lib/hqby/image.py
+END
+db.py
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/repos/s_tonghua/!svn/ver/409/trunk/src/lib/hqby/db.py
+END

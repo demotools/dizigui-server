@@ -1,0 +1,29 @@
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/repos/s_tonghua/!svn/ver/182/trunk/src/lib/baidu_pusher
+END
+Channel.py
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/repos/s_tonghua/!svn/ver/182/trunk/src/lib/baidu_pusher/Channel.py
+END
+__init__.py
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/repos/s_tonghua/!svn/ver/110/trunk/src/lib/baidu_pusher/__init__.py
+END
+RequestCore.py
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/repos/s_tonghua/!svn/ver/110/trunk/src/lib/baidu_pusher/RequestCore.py
+END
+ChannelException.py
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/repos/s_tonghua/!svn/ver/110/trunk/src/lib/baidu_pusher/ChannelException.py
+END

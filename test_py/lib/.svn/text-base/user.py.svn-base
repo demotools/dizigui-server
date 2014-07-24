@@ -1,0 +1,200 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+import json
+import time
+import model.user
+import model.item
+import model.action
+import model.comment
+from hqby.config import configs
+
+import hqby.item
+
+
+def get_user_info(uid, user=None):
+    """
+        用户额外的信息保存-ext_data: 包括 - phone, address, email, qq, intro
+    """
+    tmp_user = model.user.get_user(user_id=uid) if not user else user
+    if tmp_user:
+        user = dict()
+        user['_id'] = tmp_user['id']
+        user['user_no'] = tmp_user['user_no']
+        user['user_type'] = tmp_user['user_type']
+        user['nick'] = tmp_user['nick']
+        user['age'] = tmp_user['age']
+        user['portrait'] = tmp_user['portrait']
+        user['ext_data'] = json.loads(tmp_user['ext_data'])
+        return user
+    else:
+        return None
+
+
+def update_user(user_id, portrait, nick, age, ext_data):
+    return model.user.update_user(user_id, portrait, nick, age, ext_data)
+
+
+def get_publish_total(actor_uid):
+    total = model.action.get_publish_total(actor_uid)
+    return total
+
+
+def get_user_action(handler, actor_uid, visit_uid, size=1.5/3.2, last_row=0, count=15, type=None):
+    tmp_actions = model.action.get_user_action_and_items(actor_uid, last_row, count, type=type)
+    actions = []
+    actions_set = set()
+    action_text = {
+        'publish': u'发布了童画',
+        'love': u'喜欢了童画',
+        'comment': u'评论了童画',
+    }
+    if tmp_actions:
+        for i in tmp_actions:
+            # 过滤同一用户对同一item的同一操作
+            act_key = '%s-%s' % (i['action'], i['item_id'])
+            if act_key in actions_set:
+                continue
+            else:
+                actions_set.add(act_key)
+            item = hqby.item.get_item_info(handler, item_id=i['item_id'])
+            item['id'] = i['item_id']
+            item['owner'] = i['owner']
+            item['love'] = i['love']
+            can_del = 1 if actor_uid == visit_uid else 0
+            if i['action'] == 'love':
+                can_del = 0
+            links = [handler._link('item/%s' % item['_id'], 'item'), ]
+            if i['action'] == 'publish':
+                links.append(
+                    handler._link('item/%s' % item['_id'], 'del'),
+                )
+            if i['action'] == 'comment':
+                links.append(
+                    handler._link('delcomment/%s' % i['comment_id'], 'del'),
+                )
+            #if i['action'] == 'love':
+            #    pass
+            actions.append({
+                'action_type': i['action'],
+                'action': action_text[i['action']],
+                'item': item,
+                'can_del': can_del,
+                'comment_id': i['comment_id'],
+                'ins_timestamp': long(time.mktime(i['ins_time'].timetuple())),
+                'links': links,
+            })
+    return actions
+
+
+def get_user_score(score_uid, last_row=0, count=10):
+    tmp_score_records = model.action.get_user_score(score_uid, last_row, count)
+    score_records = []
+    if tmp_score_records:
+        for i in tmp_score_records:
+            add_score = configs['action_scores'][i['action']]
+            score_records.append({
+                'action': i['action'],
+                'item_id': i['item_id'],
+                'add_score': add_score,
+                'ins_timestamp': long(time.mktime(i['ins_time'].timetuple())),
+            })
+    return score_records
+
+
+def get_latest_score(score_uid):
+    total_score, hand_score = model.action.get_latest_score(score_uid)
+    return total_score, hand_score
+
+
+def get_some_users(last_uno=0, count=500):
+    users = []
+    rows = model.user.get_some_users(last_uno, count)
+    user_grade = {
+        '0': '普通用户',
+        '1': '认证用户',
+        '-1': '禁言用户',
+    }
+    for row in rows:
+        tmp_user = dict()
+        tmp_user['id'] = row['id']
+        tmp_user['user_no'] = row['user_no']
+        tmp_user['auth_type'] = row['auth_type']
+        tmp_user['age'] = row['age']
+        tmp_user['user_grade'] = user_grade[str(row['user_type'])]
+        tmp_user['nick'] = row['nick'].encode('utf-8')
+        tmp_user['portrait'] = row['portrait']
+        users.append(tmp_user)
+    return users
+
+
+def upgrade_user(user_id, grade):
+    model.user.upgrade_user(user_id, grade)
+    return
+
+
+def find_total_user():
+    total = model.user.find_total_user()
+    return total
+
+
+def stat_type_user(auth_type='sina'):
+    total = model.user.stat_type_user(auth_type)
+    return total
+
+
+def get_bind_info(uid):
+    row = model.user.get_bind_info(uid)
+    if row:
+        return dict(bd_uid=row.get('baidu_uid', ''),
+                    bd_cid=row.get('baidu_cid', ''),
+                    iphone_id=row.get('iphone_id', ''), )
+    return {}
+
+
+def check_bdinfo(bd_info):
+    model.user.check_existed_bdinfo(bd_info)
+    return
+
+
+def bind_bdinfo(uid, bd_info):
+    model.user.bind_bdinfo(uid, bd_info)
+    return
+
+
+def bind_iosinfo(uid, bind_info):
+    model.user.bind_iosinfo(uid, bind_info)
+    return
+
+
+def clear_iosinfo(ios_info):
+    model.user.clear_existed_iosinfo(ios_info)
+    return
+
+
+def top_users(handler, limit=10):
+    users = model.user.top_users(limit)
+    return [{'_id': u['id'],
+             'user_no': u['user_no'],
+             'user_type': u['user_type'],
+             'nick': u['nick'],
+             'age':u['age'],
+             'portrait': u['portrait'],
+             'ext_data': json.loads(u['ext_data']),
+             'links': [handler._link('user/%s' % u['id'], 'user'), ], } for u in users]
+
+
+def find_user_works(handler, user_id):
+    items = model.user.user_works(user_id)
+    its = []
+    bks = []
+    for item in items:
+        item_data = hqby.item.get_item_info(handler, item=item)
+        if item['type'] == 'item':
+            its.append(item_data)
+        elif item['type'] == 'book':
+            bks.append(item_data)
+    return {
+        'items': its,
+        'books': bks,
+    }

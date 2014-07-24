@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+import time
+import json
+
+import model.user
+import model.item
+import model.comment
+import model.action
+from hqby.config import configs
+
+
+def del_by_id(comment_id):
+    model.comment.del_by_comment_id(comment_id)
+    model.action.del_by_comment_id(comment_id)
+    return
+
+
+def top_by_id(comment_id, level=1):
+    """ 置顶评论
+    """
+    if level not in [0, 1]:
+        level = 1
+    model.comment.top_comment(comment_id, level)
+    return
+
+
+def list_comments(handler, visit_id, item_id, last_row=0, count=10):
+    count = min(configs['max_query_rows'], count)
+    rows = model.comment.list_comment(item_id, last_row, count)
+    item_own = model.item.get_item_owner(item_id)
+    comments = []
+    for row in rows:
+        tmp_user = model.user.get_user(user_id=row['owner'])
+        comments.append({
+            '_id': row['id'],
+            'user_id': row['owner'],
+            'user_nick': tmp_user['nick'],
+            'user_portrait': tmp_user['portrait'],
+            'user_type': tmp_user['user_type'],
+            #'ins_time': row['ins_time'].strftime('%Y-%m-%d %H:%M'),
+            'ins_timestamp': long(time.mktime(row['ins_time'].timetuple())),
+            'data': json.loads(row['data']) if row['refer_type'] == 'audio' else row['data'],
+            'refer_type': row['refer_type'],
+            'class': 'comment',
+            'ref_owner': row['ref_owner'],
+            'ref_data': row['ref_data'],
+            'can_del': 1 if row['owner'] == visit_id or item_own == visit_id else 0,
+            'links': [
+                handler._link('user/%s' % row['owner'], 'owner'),
+                handler._link('user2/%s' % row['owner'], 'owner2'),
+                handler._link('delcomment/%s' % row['id'], 'del')
+            ],
+        })
+    return comments
